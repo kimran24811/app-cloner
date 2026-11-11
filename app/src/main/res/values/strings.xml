@@ -1,0 +1,24 @@
+<resources>
+    <string name="app_name">OpenCloner</string>
+    <string name="admin_receiver_label">OpenCloner Sandbox</string>
+    <string name="admin_receiver_description">Enables secure, isolated dual-app containers without modifying APK signatures.</string>
+    
+    <!-- Navigation -->
+    <string name="nav_clones">Active Clones</string>
+    <string name="nav_picker">Clone New</string>
+    <string name="nav_presets">Presets</string>
+    <string name="nav_settings">Settings</string>
+
+    <!-- Profiles -->
+    <string name="preset_social_title">Dual Social</string>
+    <string name="preset_social_desc">Optimized for WhatsApp, Telegram, Messenger. Background sync active, dual media storage, native notifications.</string>
+    
+    <string name="preset_privacy_title">Burner / Privacy</string>
+    <string name="preset_privacy_desc">Isolates data strictly. Zero cross-profile communication, disabled contacts sync, wiped cache on exit.</string>
+    
+    <string name="preset_gaming_title">Game Sanctuary</string>
+    <string name="preset_gaming_desc">Safe from anti-cheat bans. Untouched APK signatures, no memory hooking artifacts, uncapped frame rate.</string>
+    
+    <string name="preset_dev_title">Dev &amp; Testing</string>
+    <string name="preset_dev_desc">Unrestricted debug environment, isolated storage inspection, logcat streaming support.</string>
+</resources>
