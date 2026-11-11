@@ -8,5 +8,6 @@ data class AppItem(
     val icon: Drawable? = null,
     val isSystemApp: Boolean = false,
     val isCloned: Boolean = false,
-    val activePreset: PresetType = PresetType.SOCIAL
+    val activePreset: PresetType = PresetType.SOCIAL,
+    val sourceApkPath: String = ""
 )

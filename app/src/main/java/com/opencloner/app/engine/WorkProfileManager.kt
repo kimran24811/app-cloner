@@ -177,7 +177,8 @@ class WorkProfileManager private constructor(private val context: Context) {
                         appName = appName,
                         icon = icon,
                         isSystemApp = isSystem,
-                        isCloned = clonedSet.contains(pkg.packageName)
+                        isCloned = clonedSet.contains(pkg.packageName),
+                        sourceApkPath = pkg.applicationInfo.sourceDir ?: ""
                     )
                 )
             }
