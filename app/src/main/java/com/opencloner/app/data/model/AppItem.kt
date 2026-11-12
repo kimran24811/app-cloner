@@ -9,5 +9,6 @@ data class AppItem(
     val isSystemApp: Boolean = false,
     val isCloned: Boolean = false,
     val activePreset: PresetType = PresetType.SOCIAL,
-    val sourceApkPath: String = ""
+    val sourceApkPath: String = "",
+    val splitApkPaths: List<String> = emptyList()
 )

@@ -44,44 +44,136 @@ fun CloneEditorScreen(
         CloneConfig(
             sourcePackageName = app.packageName,
             sourceAppName = app.appName,
-            sourceApkPath = sourceApkPath
+            sourceApkPath = sourceApkPath,
+            splitApkPaths = app.splitApkPaths
         )
     }
 
+    // 1. Identity & Icon
     var appName by remember { mutableStateOf(config.customAppName) }
     var cloneNumber by remember { mutableStateOf(config.cloneNumber) }
     var hueShift by remember { mutableStateOf(config.iconHueShift) }
     var rotateDegrees by remember { mutableStateOf(config.iconRotateDegrees) }
     var flipHorizontal by remember { mutableStateOf(config.iconFlipHorizontal) }
+    var badgeText by remember { mutableStateOf(config.badgeText) }
+    var chameleonDisguise by remember { mutableStateOf(config.chameleonDisguise) }
 
-    // Privacy
+    // 2. Privacy & Security
     var passwordProtect by remember { mutableStateOf(config.passwordProtect) }
     var appPassword by remember { mutableStateOf(config.appPassword) }
+    var fakeCalculatorLock by remember { mutableStateOf(config.fakeCalculatorLock) }
+    var fakeCrashOnStartup by remember { mutableStateOf(config.fakeCrashOnStartup) }
     var preventScreenshots by remember { mutableStateOf(config.preventScreenshots) }
+    var hideFromRecents by remember { mutableStateOf(config.hideFromRecents) }
     var hideRoot by remember { mutableStateOf(config.hideRoot) }
+    var hideDeveloperMode by remember { mutableStateOf(config.hideDeveloperMode) }
 
-    // Identity
+    // 3. Identity & Spoofing
     var changeAndroidId by remember { mutableStateOf(config.changeAndroidId) }
     var customAndroidId by remember { mutableStateOf(config.customAndroidId) }
     var randomizeBuildProps by remember { mutableStateOf(config.randomizeBuildProps) }
+    var spoofDeviceModel by remember { mutableStateOf(config.spoofDeviceModel) }
+    var mockWifiMac by remember { mutableStateOf(config.mockWifiMac) }
 
-    // Network
+    // 4. Networking & Proxy
     var enableProxy by remember { mutableStateOf(config.enableProxy) }
     var proxyType by remember { mutableStateOf(config.proxyType) }
     var proxyHost by remember { mutableStateOf(config.proxyHost) }
     var proxyPort by remember { mutableStateOf(config.proxyPort.toString()) }
     var offlineMode by remember { mutableStateOf(config.offlineMode) }
 
-    // Location
+    // 5. Location & Mock GPS
     var mockLocation by remember { mutableStateOf(config.mockLocation) }
     var mockLat by remember { mutableStateOf(config.mockLatitude.toString()) }
     var mockLng by remember { mutableStateOf(config.mockLongitude.toString()) }
+    var hideMockLocation by remember { mutableStateOf(config.hideMockLocation) }
 
-    // Media & Display
+    // 6. Display & UI
     var forceDarkMode by remember { mutableStateOf(config.forceDarkMode) }
+    var forceOrientation by remember { mutableStateOf(config.forceOrientation) }
+    var immersiveMode by remember { mutableStateOf(config.immersiveMode) }
+    var keepScreenOn by remember { mutableStateOf(config.keepScreenOn) }
+
+    // 7. Media & Camera
     var fakeCamera by remember { mutableStateOf(config.fakeCamera) }
     var muteAudio by remember { mutableStateOf(config.muteAudioOnStart) }
-    var keepScreenOn by remember { mutableStateOf(config.keepScreenOn) }
+
+    // 8. Storage & Sandboxing
+    var isolateExternalStorage by remember { mutableStateOf(config.isolateExternalStorage) }
+    var autoClearCacheOnExit by remember { mutableStateOf(config.autoClearCacheOnExit) }
+
+    // 9. Launching & Automation
+    var autoStartOnBoot by remember { mutableStateOf(config.autoStartOnBoot) }
+    var secretDialerCode by remember { mutableStateOf(config.secretDialerCode) }
+
+    // 10. Notifications
+    var blockNotifications by remember { mutableStateOf(config.blockNotifications) }
+    var notificationKeywordFilter by remember { mutableStateOf(config.notificationKeywordFilter) }
+
+    // 11. Game & Performance
+    var fpsLimiter by remember { mutableStateOf(config.fpsLimiter) }
+    var touchVisualizer by remember { mutableStateOf(config.touchVisualizer) }
+    var requestLargeHeap by remember { mutableStateOf(config.requestLargeHeap) }
+
+    fun submitBuild() {
+        config.customAppName = appName
+        config.cloneNumber = cloneNumber
+        config.updatePackageName()
+        config.iconHueShift = hueShift
+        config.iconRotateDegrees = rotateDegrees
+        config.iconFlipHorizontal = flipHorizontal
+        config.badgeText = badgeText
+        config.chameleonDisguise = chameleonDisguise
+
+        config.passwordProtect = passwordProtect
+        config.appPassword = appPassword
+        config.fakeCalculatorLock = fakeCalculatorLock
+        config.fakeCrashOnStartup = fakeCrashOnStartup
+        config.preventScreenshots = preventScreenshots
+        config.hideFromRecents = hideFromRecents
+        config.hideRoot = hideRoot
+        config.hideDeveloperMode = hideDeveloperMode
+
+        config.changeAndroidId = changeAndroidId
+        config.customAndroidId = customAndroidId
+        config.randomizeBuildProps = randomizeBuildProps
+        config.spoofDeviceModel = spoofDeviceModel
+        config.mockWifiMac = mockWifiMac
+
+        config.enableProxy = enableProxy
+        config.proxyType = proxyType
+        config.proxyHost = proxyHost
+        config.proxyPort = proxyPort.toIntOrNull() ?: 1080
+        config.offlineMode = offlineMode
+
+        config.mockLocation = mockLocation
+        config.mockLatitude = mockLat.toDoubleOrNull() ?: 37.7749
+        config.mockLongitude = mockLng.toDoubleOrNull() ?: -122.4194
+        config.hideMockLocation = hideMockLocation
+
+        config.forceDarkMode = forceDarkMode
+        config.forceOrientation = forceOrientation
+        config.immersiveMode = immersiveMode
+        config.keepScreenOn = keepScreenOn
+
+        config.fakeCamera = fakeCamera
+        config.muteAudioOnStart = muteAudio
+
+        config.isolateExternalStorage = isolateExternalStorage
+        config.autoClearCacheOnExit = autoClearCacheOnExit
+
+        config.autoStartOnBoot = autoStartOnBoot
+        config.secretDialerCode = secretDialerCode
+
+        config.blockNotifications = blockNotifications
+        config.notificationKeywordFilter = notificationKeywordFilter
+
+        config.fpsLimiter = fpsLimiter
+        config.touchVisualizer = touchVisualizer
+        config.requestLargeHeap = requestLargeHeap
+
+        onStartBuild(config)
+    }
 
     Scaffold(
         topBar = {
@@ -94,35 +186,7 @@ fun CloneEditorScreen(
                 },
                 actions = {
                     Button(
-                        onClick = {
-                            config.customAppName = appName
-                            config.cloneNumber = cloneNumber
-                            config.updatePackageName()
-                            config.iconHueShift = hueShift
-                            config.iconRotateDegrees = rotateDegrees
-                            config.iconFlipHorizontal = flipHorizontal
-                            config.passwordProtect = passwordProtect
-                            config.appPassword = appPassword
-                            config.preventScreenshots = preventScreenshots
-                            config.hideRoot = hideRoot
-                            config.changeAndroidId = changeAndroidId
-                            config.customAndroidId = customAndroidId
-                            config.randomizeBuildProps = randomizeBuildProps
-                            config.enableProxy = enableProxy
-                            config.proxyType = proxyType
-                            config.proxyHost = proxyHost
-                            config.proxyPort = proxyPort.toIntOrNull() ?: 1080
-                            config.offlineMode = offlineMode
-                            config.mockLocation = mockLocation
-                            config.mockLatitude = mockLat.toDoubleOrNull() ?: 37.7749
-                            config.mockLongitude = mockLng.toDoubleOrNull() ?: -122.4194
-                            config.forceDarkMode = forceDarkMode
-                            config.fakeCamera = fakeCamera
-                            config.muteAudioOnStart = muteAudio
-                            config.keepScreenOn = keepScreenOn
-
-                            onStartBuild(config)
-                        },
+                        onClick = { submitBuild() },
                         colors = ButtonDefaults.buttonColors(containerColor = IndigoPrimary),
                         shape = RoundedCornerShape(8.dp)
                     ) {
@@ -143,7 +207,7 @@ fun CloneEditorScreen(
                 .padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            // Live Preview Card
+            // Header: Live Icon & Title Preview
             item {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
@@ -153,54 +217,67 @@ fun CloneEditorScreen(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(18.dp),
+                            .padding(16.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        // Live Transformed Icon Preview
                         Box(
                             modifier = Modifier
-                                .size(64.dp)
-                                .clip(RoundedCornerShape(14.dp))
+                                .size(72.dp)
+                                .clip(RoundedCornerShape(16.dp))
                                 .background(DarkSurfaceElevated)
                                 .rotate(rotateDegrees)
                                 .scale(scaleX = if (flipHorizontal) -1f else 1f, scaleY = 1f),
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
-                                imageVector = Icons.Default.Apps,
+                                imageVector = Icons.Default.Android,
                                 contentDescription = null,
-                                modifier = Modifier.size(36.dp),
-                                tint = if (hueShift > 0f) Color.hsl(hueShift, 0.8f, 0.6f) else CyanAccent
+                                modifier = Modifier.size(48.dp),
+                                tint = if (hueShift > 0f) Color(android.graphics.Color.HSVToColor(floatArrayOf(hueShift, 0.85f, 0.95f))) else CyanAccent
                             )
+                            if (badgeText.isNotBlank()) {
+                                Box(
+                                    modifier = Modifier
+                                        .align(Alignment.BottomEnd)
+                                        .background(IndigoPrimary, RoundedCornerShape(4.dp))
+                                        .padding(horizontal = 4.dp, vertical = 1.dp)
+                                ) {
+                                    Text(badgeText, color = Color.White, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                                }
+                            }
                         }
 
                         Spacer(modifier = Modifier.width(16.dp))
+
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = appName.ifBlank { app.appName },
-                                style = MaterialTheme.typography.titleLarge,
+                                text = appName,
+                                style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
                                 color = TextPrimary
                             )
-                            Spacer(modifier = Modifier.height(2.dp))
                             Text(
                                 text = "${app.packageName}.clone$cloneNumber",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = CyanAccent
                             )
-                            Text(
-                                text = "Standalone Modified APK",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = EmeraldSuccess
-                            )
+                            if (config.splitApkPaths.isNotEmpty()) {
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = "Split APK Merging Active (${config.splitApkPaths.size} splits detected)",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = EmeraldSuccess,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
                         }
                     }
                 }
             }
 
-            // 🎨 Name & Icon Customization Section
+            // 1. App Identity & Icon Modding
             item {
-                FeatureGroupCard(title = "App Identity & Icon", icon = Icons.Default.Palette) {
+                FeatureGroupCard(title = "App Identity & Icon Modding", icon = Icons.Default.Palette) {
                     OutlinedTextField(
                         value = appName,
                         onValueChange = { appName = it },
@@ -210,46 +287,37 @@ fun CloneEditorScreen(
                         colors = customFieldColors()
                     )
 
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(10.dp))
 
-                    // Clone Number Stepper
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("Clone Number", color = TextPrimary, fontWeight = FontWeight.Medium)
+                        Column {
+                            Text("Clone Number", fontWeight = FontWeight.SemiBold, color = TextPrimary)
+                            Text("Package suffix: .clone$cloneNumber", style = MaterialTheme.typography.labelSmall, color = TextSecondary)
+                        }
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             IconButton(onClick = { if (cloneNumber > 1) cloneNumber-- }) {
-                                Icon(Icons.Default.RemoveCircleOutline, contentDescription = "Decrease", tint = TextSecondary)
+                                Icon(Icons.Default.RemoveCircleOutline, contentDescription = "Decrease", tint = CyanAccent)
                             }
-                            Text(
-                                text = cloneNumber.toString(),
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = TextPrimary,
-                                modifier = Modifier.padding(horizontal = 8.dp)
-                            )
+                            Text("$cloneNumber", fontWeight = FontWeight.Bold, color = TextPrimary, fontSize = 18.sp)
                             IconButton(onClick = { cloneNumber++ }) {
-                                Icon(Icons.Default.AddCircleOutline, contentDescription = "Increase", tint = IndigoPrimary)
+                                Icon(Icons.Default.AddCircleOutline, contentDescription = "Increase", tint = CyanAccent)
                             }
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Text("Icon Color Hue (${hueShift.toInt()}°)", color = TextPrimary, fontWeight = FontWeight.Medium)
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Text("Icon Hue Tint: ${hueShift.toInt()}°", style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
                     Slider(
                         value = hueShift,
                         onValueChange = { hueShift = it },
                         valueRange = 0f..360f,
-                        colors = SliderDefaults.colors(
-                            thumbColor = IndigoPrimary,
-                            activeTrackColor = CyanAccent,
-                            inactiveTrackColor = DarkSurfaceElevated
-                        )
+                        colors = SliderDefaults.colors(thumbColor = IndigoPrimary, activeTrackColor = IndigoPrimary)
                     )
 
-                    Spacer(modifier = Modifier.height(8.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         OutlinedButton(
                             onClick = { rotateDegrees = (rotateDegrees + 90f) % 360f },
@@ -268,12 +336,38 @@ fun CloneEditorScreen(
                             Text(if (flipHorizontal) "Flipped" else "Flip")
                         }
                     }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+                    OutlinedTextField(
+                        value = badgeText,
+                        onValueChange = { badgeText = it },
+                        label = { Text("Badge Label (e.g. 2, Work, VIP)") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        colors = customFieldColors()
+                    )
+
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Text("Chameleon Icon Disguise:", style = MaterialTheme.typography.labelSmall, color = CyanAccent)
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        listOf("None", "Calculator", "Clock", "Weather").forEach { disguise ->
+                            FilterChip(
+                                selected = (chameleonDisguise.ifBlank { "None" }) == disguise,
+                                onClick = { chameleonDisguise = if (disguise == "None") "" else disguise },
+                                label = { Text(disguise, fontSize = 11.sp) }
+                            )
+                        }
+                    }
                 }
             }
 
-            // 🛡️ Privacy & Password Protection
+            // 2. Privacy & Security Options
             item {
-                FeatureGroupCard(title = "Privacy & Password Lock", icon = Icons.Default.Lock) {
+                FeatureGroupCard(title = "Privacy & Security Options", icon = Icons.Default.Lock) {
                     ToggleRow(
                         title = "Password Protect App",
                         subtitle = "Require PIN or password before app opens",
@@ -286,7 +380,7 @@ fun CloneEditorScreen(
                             OutlinedTextField(
                                 value = appPassword,
                                 onValueChange = { appPassword = it },
-                                label = { Text("Enter App Password") },
+                                label = { Text("Enter App Password/PIN") },
                                 modifier = Modifier.fillMaxWidth(),
                                 singleLine = true,
                                 colors = customFieldColors()
@@ -295,24 +389,38 @@ fun CloneEditorScreen(
                     }
                     Divider(color = DarkSurfaceElevated, modifier = Modifier.padding(vertical = 10.dp))
                     ToggleRow(
-                        title = "Prevent Screenshots",
+                        title = "Fake Calculator Disguise",
+                        subtitle = "Opens as a working calculator; secret PIN unlocks clone",
+                        checked = fakeCalculatorLock,
+                        onCheckedChange = { fakeCalculatorLock = it }
+                    )
+                    Divider(color = DarkSurfaceElevated, modifier = Modifier.padding(vertical = 10.dp))
+                    ToggleRow(
+                        title = "Fake Crash Dialog on Launch",
+                        subtitle = "Shows 'Unfortunately app has stopped' to mislead snoopers",
+                        checked = fakeCrashOnStartup,
+                        onCheckedChange = { fakeCrashOnStartup = it }
+                    )
+                    Divider(color = DarkSurfaceElevated, modifier = Modifier.padding(vertical = 10.dp))
+                    ToggleRow(
+                        title = "Prevent Screenshots (FLAG_SECURE)",
                         subtitle = "Blocks screen capture and hides app preview in recents",
                         checked = preventScreenshots,
                         onCheckedChange = { preventScreenshots = it }
                     )
                     Divider(color = DarkSurfaceElevated, modifier = Modifier.padding(vertical = 10.dp))
                     ToggleRow(
-                        title = "Hide Root & Debugging",
-                        subtitle = "Conceals root binaries and test-keys from target app",
-                        checked = hideRoot,
-                        onCheckedChange = { hideRoot = it }
+                        title = "Stealth Mode (Hide from Recents)",
+                        subtitle = "Excludes cloned app from recent apps switcher",
+                        checked = hideFromRecents,
+                        onCheckedChange = { hideFromRecents = it }
                     )
                 }
             }
 
-            // 🕵️ Identity & Anti-Fingerprinting
+            // 3. Identity & Device Spoofing
             item {
-                FeatureGroupCard(title = "Device Identity & Spoofing", icon = Icons.Default.Fingerprint) {
+                FeatureGroupCard(title = "Identity & Device Spoofing", icon = Icons.Default.Fingerprint) {
                     ToggleRow(
                         title = "Change Android ID",
                         subtitle = "Overrides system 64-bit Android ID",
@@ -349,41 +457,40 @@ fun CloneEditorScreen(
                     }
                     Divider(color = DarkSurfaceElevated, modifier = Modifier.padding(vertical = 10.dp))
                     ToggleRow(
-                        title = "Randomize Build Props",
+                        title = "Spoof Device Build Props",
                         subtitle = "Spoofs device brand, model, and hardware fingerprint",
                         checked = randomizeBuildProps,
                         onCheckedChange = { randomizeBuildProps = it }
                     )
                     AnimatedVisibility(visible = randomizeBuildProps) {
                         Column(modifier = Modifier.padding(top = 10.dp)) {
-                            Text("Quick Device Profiles:", style = MaterialTheme.typography.labelSmall, color = CyanAccent)
+                            Text("Device Model Presets:", style = MaterialTheme.typography.labelSmall, color = CyanAccent)
                             Spacer(modifier = Modifier.height(6.dp))
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.spacedBy(6.dp)
                             ) {
-                                FilterChip(
-                                    selected = true,
-                                    onClick = {},
-                                    label = { Text("Galaxy S24", fontSize = 11.sp) }
-                                )
-                                FilterChip(
-                                    selected = false,
-                                    onClick = {},
-                                    label = { Text("Pixel 8 Pro", fontSize = 11.sp) }
-                                )
-                                FilterChip(
-                                    selected = false,
-                                    onClick = {},
-                                    label = { Text("Xiaomi 14", fontSize = 11.sp) }
-                                )
+                                listOf("Galaxy S24", "Pixel 8 Pro", "Xiaomi 14", "OnePlus 12").forEach { dev ->
+                                    FilterChip(
+                                        selected = spoofDeviceModel == dev,
+                                        onClick = { spoofDeviceModel = dev },
+                                        label = { Text(dev, fontSize = 11.sp) }
+                                    )
+                                }
                             }
                         }
                     }
+                    Divider(color = DarkSurfaceElevated, modifier = Modifier.padding(vertical = 10.dp))
+                    ToggleRow(
+                        title = "Randomize Wi-Fi MAC Address",
+                        subtitle = "Spoofs hardware MAC address using authentic vendor OUI database",
+                        checked = mockWifiMac,
+                        onCheckedChange = { mockWifiMac = it }
+                    )
                 }
             }
 
-            // 🌐 Networking & SOCKS5 Proxy
+            // 4. Networking & Proxy Options
             item {
                 FeatureGroupCard(title = "Networking & Proxy Options", icon = Icons.Default.VpnLock) {
                     ToggleRow(
@@ -430,14 +537,14 @@ fun CloneEditorScreen(
                     Divider(color = DarkSurfaceElevated, modifier = Modifier.padding(vertical = 10.dp))
                     ToggleRow(
                         title = "Offline Mode (Kill Switch)",
-                        subtitle = "Completely disable all internet permissions for this app",
+                        subtitle = "Completely disable all internet permissions for this clone",
                         checked = offlineMode,
                         onCheckedChange = { offlineMode = it }
                     )
                 }
             }
 
-            // 📍 Location Mocking (Fake GPS)
+            // 5. Location & Mock GPS Options
             item {
                 FeatureGroupCard(title = "Location & Mock GPS", icon = Icons.Default.LocationOn) {
                     ToggleRow(
@@ -448,7 +555,7 @@ fun CloneEditorScreen(
                     )
                     AnimatedVisibility(visible = mockLocation) {
                         Column(modifier = Modifier.padding(top = 8.dp)) {
-                            Text("Quick City Presets:", style = MaterialTheme.typography.labelSmall, color = CyanAccent)
+                            Text("Quick City Presets (from cities.csv):", style = MaterialTheme.typography.labelSmall, color = CyanAccent)
                             Spacer(modifier = Modifier.height(6.dp))
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
@@ -497,40 +604,158 @@ fun CloneEditorScreen(
                                     colors = customFieldColors()
                                 )
                             }
+                            Spacer(modifier = Modifier.height(8.dp))
+                            ToggleRow(
+                                title = "Hide Mock Location",
+                                subtitle = "Prevents target app from detecting isFromMockProvider",
+                                checked = hideMockLocation,
+                                onCheckedChange = { hideMockLocation = it }
+                            )
                         }
                     }
                 }
             }
 
-            // 🖥️ Display & Media
+            // 6. Display & UI Controls
             item {
-                FeatureGroupCard(title = "Display & Media Options", icon = Icons.Default.Tv) {
+                FeatureGroupCard(title = "Display & UI Controls", icon = Icons.Default.Tv) {
                     ToggleRow(
                         title = "Force Dark Mode",
-                        subtitle = "Invert background and surfaces to dark colors",
+                        subtitle = "Inverts surfaces and text to eye-friendly dark colors",
                         checked = forceDarkMode,
                         onCheckedChange = { forceDarkMode = it }
                     )
                     Divider(color = DarkSurfaceElevated, modifier = Modifier.padding(vertical = 10.dp))
                     ToggleRow(
-                        title = "Fake Camera",
-                        subtitle = "Replace live camera feed with an image from your gallery",
+                        title = "Immersive Full-Screen Mode",
+                        subtitle = "Hides Android status bar and navigation bar",
+                        checked = immersiveMode,
+                        onCheckedChange = { immersiveMode = it }
+                    )
+                    Divider(color = DarkSurfaceElevated, modifier = Modifier.padding(vertical = 10.dp))
+                    ToggleRow(
+                        title = "Keep Screen On",
+                        subtitle = "Prevents device display from sleeping while app is open",
+                        checked = keepScreenOn,
+                        onCheckedChange = { keepScreenOn = it }
+                    )
+                }
+            }
+
+            // 7. Media & Camera Emulation
+            item {
+                FeatureGroupCard(title = "Media & Hardware Emulation", icon = Icons.Default.Videocam) {
+                    ToggleRow(
+                        title = "Fake Camera Feed",
+                        subtitle = "Intercept camera capture intent and supply a gallery photo",
                         checked = fakeCamera,
                         onCheckedChange = { fakeCamera = it }
                     )
                     Divider(color = DarkSurfaceElevated, modifier = Modifier.padding(vertical = 10.dp))
                     ToggleRow(
-                        title = "Mute Volume on Start",
-                        subtitle = "Silences all media playback when the cloned app opens",
+                        title = "Mute Volume on Launch",
+                        subtitle = "Silences all media playback when the clone starts",
                         checked = muteAudio,
                         onCheckedChange = { muteAudio = it }
                     )
+                }
+            }
+
+            // 8. Storage & Sandboxing
+            item {
+                FeatureGroupCard(title = "Storage & Sandboxing Options", icon = Icons.Default.Folder) {
+                    ToggleRow(
+                        title = "Isolate External Storage",
+                        subtitle = "Redirect shared storage to app-isolated private folder",
+                        checked = isolateExternalStorage,
+                        onCheckedChange = { isolateExternalStorage = it }
+                    )
                     Divider(color = DarkSurfaceElevated, modifier = Modifier.padding(vertical = 10.dp))
                     ToggleRow(
-                        title = "Keep Screen On",
-                        subtitle = "Prevents device display from sleeping while app is in foreground",
-                        checked = keepScreenOn,
-                        onCheckedChange = { keepScreenOn = it }
+                        title = "Auto-Clear Cache on Exit",
+                        subtitle = "Deletes temporary cache and logs every time the app closes",
+                        checked = autoClearCacheOnExit,
+                        onCheckedChange = { autoClearCacheOnExit = it }
+                    )
+                }
+            }
+
+            // 9. Launching & Automation
+            item {
+                FeatureGroupCard(title = "Launching & Automation", icon = Icons.Default.RocketLaunch) {
+                    ToggleRow(
+                        title = "Auto-Start on Device Boot",
+                        subtitle = "Launches clone automatically when Android starts up",
+                        checked = autoStartOnBoot,
+                        onCheckedChange = { autoStartOnBoot = it }
+                    )
+                    Divider(color = DarkSurfaceElevated, modifier = Modifier.padding(vertical = 10.dp))
+                    OutlinedTextField(
+                        value = secretDialerCode,
+                        onValueChange = { secretDialerCode = it },
+                        label = { Text("Secret Dialer Code (e.g. *#*#1234#*#*)") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        colors = customFieldColors()
+                    )
+                }
+            }
+
+            // 10. Game & Performance
+            item {
+                FeatureGroupCard(title = "Game & Performance Options", icon = Icons.Default.SportsEsports) {
+                    ToggleRow(
+                        title = "Request Large Heap (RAM)",
+                        subtitle = "Allocates extra memory heap to prevent game lag & OOM crashes",
+                        checked = requestLargeHeap,
+                        onCheckedChange = { requestLargeHeap = it }
+                    )
+                    Divider(color = DarkSurfaceElevated, modifier = Modifier.padding(vertical = 10.dp))
+                    ToggleRow(
+                        title = "Touch Pointer Visualizer",
+                        subtitle = "Displays circular visual touch feedback on screen",
+                        checked = touchVisualizer,
+                        onCheckedChange = { touchVisualizer = it }
+                    )
+                }
+            }
+
+            // 11. Developer & Anti-Detection
+            item {
+                FeatureGroupCard(title = "Anti-Detection & Safe Mode", icon = Icons.Default.Security) {
+                    ToggleRow(
+                        title = "Hide Root & Magisk",
+                        subtitle = "Conceals root binaries, su files, and test-keys from target app",
+                        checked = hideRoot,
+                        onCheckedChange = { hideRoot = it }
+                    )
+                    Divider(color = DarkSurfaceElevated, modifier = Modifier.padding(vertical = 10.dp))
+                    ToggleRow(
+                        title = "Hide Developer Mode & USB Debugging",
+                        subtitle = "Conceals developer settings to bypass banking/anti-cheat checks",
+                        checked = hideDeveloperMode,
+                        onCheckedChange = { hideDeveloperMode = it }
+                    )
+                }
+            }
+
+            // 12. Notifications
+            item {
+                FeatureGroupCard(title = "Notification Controls", icon = Icons.Default.Notifications) {
+                    ToggleRow(
+                        title = "Block All Notifications",
+                        subtitle = "Completely silences all notification posts from this clone",
+                        checked = blockNotifications,
+                        onCheckedChange = { blockNotifications = it }
+                    )
+                    Divider(color = DarkSurfaceElevated, modifier = Modifier.padding(vertical = 10.dp))
+                    OutlinedTextField(
+                        value = notificationKeywordFilter,
+                        onValueChange = { notificationKeywordFilter = it },
+                        label = { Text("Keyword Blacklist (comma-separated)") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        colors = customFieldColors()
                     )
                 }
             }
@@ -538,35 +763,7 @@ fun CloneEditorScreen(
             // 🚀 Action Button
             item {
                 Button(
-                    onClick = {
-                        config.customAppName = appName
-                        config.cloneNumber = cloneNumber
-                        config.updatePackageName()
-                        config.iconHueShift = hueShift
-                        config.iconRotateDegrees = rotateDegrees
-                        config.iconFlipHorizontal = flipHorizontal
-                        config.passwordProtect = passwordProtect
-                        config.appPassword = appPassword
-                        config.preventScreenshots = preventScreenshots
-                        config.hideRoot = hideRoot
-                        config.changeAndroidId = changeAndroidId
-                        config.customAndroidId = customAndroidId
-                        config.randomizeBuildProps = randomizeBuildProps
-                        config.enableProxy = enableProxy
-                        config.proxyType = proxyType
-                        config.proxyHost = proxyHost
-                        config.proxyPort = proxyPort.toIntOrNull() ?: 1080
-                        config.offlineMode = offlineMode
-                        config.mockLocation = mockLocation
-                        config.mockLatitude = mockLat.toDoubleOrNull() ?: 37.7749
-                        config.mockLongitude = mockLng.toDoubleOrNull() ?: -122.4194
-                        config.forceDarkMode = forceDarkMode
-                        config.fakeCamera = fakeCamera
-                        config.muteAudioOnStart = muteAudio
-                        config.keepScreenOn = keepScreenOn
-
-                        onStartBuild(config)
-                    },
+                    onClick = { submitBuild() },
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(56.dp),

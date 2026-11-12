@@ -28,15 +28,15 @@ import java.util.zip.ZipOutputStream
 class ApkPatcherEngine(private val context: Context) {
 
     /**
-     * Main pipeline: Takes CloneConfig, modifies APK manifest & resources, injects config payload,
-     * reassembles the APK, and signs it with v1 and v2 APK signatures.
+     * Main pipeline: Merges Split APKs (native libraries & assets), rewrites binary AXML manifest
+     * (package names & provider authorities), injects runtime config, and signs with v1 & v2 schemes.
      */
     fun buildClonedApk(
         config: CloneConfig,
         onProgress: (step: String, percent: Float) -> Unit
     ): File? {
         try {
-            onProgress("Locating source APK...", 0.10f)
+            onProgress("Locating source APKs...", 0.05f)
             val sourceApk = File(config.sourceApkPath)
             if (!sourceApk.exists()) {
                 Log.e(TAG, "Source APK does not exist at ${config.sourceApkPath}")
@@ -49,20 +49,21 @@ class ApkPatcherEngine(private val context: Context) {
             val unsignedApk = File(outputDir, "${cleanName}_temp_unsigned.apk")
             val finalSignedApk = File(outputDir, "${cleanName}_clone${config.cloneNumber}.apk")
 
-            onProgress("Configuring clone runtime policies...", 0.25f)
+            onProgress("Configuring clone runtime policies...", 0.15f)
             val configJson = createRuntimeConfigJson(config)
 
-            onProgress("Patching manifest & package identities...", 0.45f)
+            onProgress("Patching base manifest & components...", 0.30f)
             val zipIn = ZipInputStream(FileInputStream(sourceApk))
             val zipOut = ZipOutputStream(FileOutputStream(unsignedApk))
 
-            var entry: ZipEntry? = zipIn.nextEntry
+            val existingEntries = HashSet<String>()
             val buffer = ByteArray(8192)
 
+            var entry: ZipEntry? = zipIn.nextEntry
             while (entry != null) {
                 val entryName = entry.name
 
-                // Skip existing cryptographic signatures so we can resign cleanly
+                // Skip existing signatures so we can resign cleanly
                 if (entryName.startsWith("META-INF/") && (
                         entryName.endsWith(".SF") ||
                         entryName.endsWith(".RSA") ||
@@ -76,12 +77,14 @@ class ApkPatcherEngine(private val context: Context) {
 
                 if (entryName == "AndroidManifest.xml") {
                     val rawManifest = zipIn.readBytes()
-                    val patchedManifest = patchBinaryManifest(rawManifest, config.sourcePackageName, config.customPackageName)
+                    val patchedManifest = patchBinaryManifest(rawManifest, config.sourcePackageName, config.customPackageName, config.cloneNumber)
                     val newEntry = ZipEntry("AndroidManifest.xml")
                     zipOut.putNextEntry(newEntry)
                     zipOut.write(patchedManifest)
                     zipOut.closeEntry()
-                } else {
+                    existingEntries.add("AndroidManifest.xml")
+                } else if (!existingEntries.contains(entryName)) {
+                    existingEntries.add(entryName)
                     val newEntry = ZipEntry(entryName)
                     zipOut.putNextEntry(newEntry)
                     var bytesRead: Int
@@ -94,7 +97,43 @@ class ApkPatcherEngine(private val context: Context) {
             }
             zipIn.close()
 
-            onProgress("Injecting OpenCloner payload & hooks...", 0.70f)
+            // Merge Split APKs (Critical for games like 8 Ball Pool and apps like Gemini)
+            if (config.splitApkPaths.isNotEmpty()) {
+                val splitCount = config.splitApkPaths.size
+                config.splitApkPaths.forEachIndexed { index, splitPath ->
+                    val splitFile = File(splitPath)
+                    if (splitFile.exists() && splitFile.isFile) {
+                        val progress = 0.40f + (0.25f * ((index + 1).toFloat() / splitCount))
+                        onProgress("Merging split APK (${splitFile.name})...", progress)
+                        try {
+                            val splitZip = ZipInputStream(FileInputStream(splitFile))
+                            var splitEntry = splitZip.nextEntry
+                            while (splitEntry != null) {
+                                val sName = splitEntry.name
+                                if (!sName.startsWith("META-INF/") &&
+                                    sName != "AndroidManifest.xml" &&
+                                    !existingEntries.contains(sName)) {
+
+                                    existingEntries.add(sName)
+                                    val newEntry = ZipEntry(sName)
+                                    zipOut.putNextEntry(newEntry)
+                                    var bytesRead: Int
+                                    while (splitZip.read(buffer).also { bytesRead = it } != -1) {
+                                        zipOut.write(buffer, 0, bytesRead)
+                                    }
+                                    zipOut.closeEntry()
+                                }
+                                splitEntry = splitZip.nextEntry
+                            }
+                            splitZip.close()
+                        } catch (e: Exception) {
+                            Log.e(TAG, "Error merging split APK: $splitPath", e)
+                        }
+                    }
+                }
+            }
+
+            onProgress("Injecting OpenCloner payload & hooks...", 0.75f)
             // Inject runtime configuration into assets/opencloner_config.json
             val configEntry = ZipEntry("assets/opencloner_config.json")
             zipOut.putNextEntry(configEntry)
@@ -104,7 +143,7 @@ class ApkPatcherEngine(private val context: Context) {
             zipOut.finish()
             zipOut.close()
 
-            onProgress("Signing APK with Android keystore...", 0.85f)
+            onProgress("Signing APK with Android keystore...", 0.88f)
             val signSuccess = signApk(unsignedApk, finalSignedApk)
             unsignedApk.delete()
 
@@ -124,7 +163,7 @@ class ApkPatcherEngine(private val context: Context) {
     }
 
     /**
-     * Signs the generated APK with APK Signature Scheme v1 and v2 using built-in debug keystore.
+     * Signs the generated APK with APK Signature Scheme v1 and v2 using bundled keystore.
      */
     private fun signApk(unsignedApk: File, signedApk: File): Boolean {
         return try {
@@ -152,14 +191,14 @@ class ApkPatcherEngine(private val context: Context) {
             Log.i(TAG, "APK signed successfully with v1 and v2 schemes!")
             true
         } catch (e: Exception) {
-            Log.e(TAG, "ApkSigner failed; fallback to direct copy", e)
+            Log.e(TAG, "ApkSigner failed; fallback to copy", e)
             unsignedApk.copyTo(signedApk, overwrite = true)
             true
         }
     }
 
     /**
-     * Serializes all selected modding features into an assets configuration JSON
+     * Serializes all 15 categories of selected modding features into an assets configuration JSON
      */
     private fun createRuntimeConfigJson(config: CloneConfig): String {
         val root = JSONObject().apply {
@@ -168,19 +207,31 @@ class ApkPatcherEngine(private val context: Context) {
             put("customAppName", config.customAppName)
             put("cloneNumber", config.cloneNumber)
 
-            // Privacy
+            // Category 1: Icons & Disguise
+            put("iconHueShift", config.iconHueShift)
+            put("iconRotateDegrees", config.iconRotateDegrees)
+            put("iconFlipHorizontal", config.iconFlipHorizontal)
+            put("badgeText", config.badgeText)
+            put("chameleonDisguise", config.chameleonDisguise)
+
+            // Category 2: Privacy & Password
             put("passwordProtect", config.passwordProtect)
             put("appPassword", config.appPassword)
+            put("fakeCalculatorLock", config.fakeCalculatorLock)
             put("fakeCrashOnStartup", config.fakeCrashOnStartup)
             put("preventScreenshots", config.preventScreenshots)
+            put("hideFromRecents", config.hideFromRecents)
             put("hideRoot", config.hideRoot)
+            put("hideDeveloperMode", config.hideDeveloperMode)
 
-            // Identity
+            // Category 3: Identity & Spoofing
             put("changeAndroidId", config.changeAndroidId)
             put("customAndroidId", config.customAndroidId)
             put("randomizeBuildProps", config.randomizeBuildProps)
+            put("spoofDeviceModel", config.spoofDeviceModel)
+            put("mockWifiMac", config.mockWifiMac)
 
-            // Networking
+            // Category 4: Networking & Proxy
             put("enableProxy", config.enableProxy)
             put("proxyType", config.proxyType)
             put("proxyHost", config.proxyHost)
@@ -189,25 +240,48 @@ class ApkPatcherEngine(private val context: Context) {
             put("proxyPass", config.proxyPass)
             put("offlineMode", config.offlineMode)
 
-            // Location
+            // Category 5: Location & Mock GPS
             put("mockLocation", config.mockLocation)
             put("mockLatitude", config.mockLatitude)
             put("mockLongitude", config.mockLongitude)
+            put("hideMockLocation", config.hideMockLocation)
 
-            // Display & Media
+            // Category 6: Display & UI
             put("forceDarkMode", config.forceDarkMode)
-            put("muteAudioOnStart", config.muteAudioOnStart)
+            put("forceOrientation", config.forceOrientation)
+            put("immersiveMode", config.immersiveMode)
             put("keepScreenOn", config.keepScreenOn)
+
+            // Category 7: Media & Camera
             put("fakeCamera", config.fakeCamera)
+            put("muteAudioOnStart", config.muteAudioOnStart)
+
+            // Category 8: Storage & Sandboxing
+            put("isolateExternalStorage", config.isolateExternalStorage)
+            put("autoClearCacheOnExit", config.autoClearCacheOnExit)
+
+            // Category 9: Launching & Automation
+            put("autoStartOnBoot", config.autoStartOnBoot)
+            put("secretDialerCode", config.secretDialerCode)
+
+            // Category 10: Notifications
+            put("blockNotifications", config.blockNotifications)
+            put("notificationKeywordFilter", config.notificationKeywordFilter)
+
+            // Category 11: Game & Performance
+            put("fpsLimiter", config.fpsLimiter)
+            put("touchVisualizer", config.touchVisualizer)
+            put("requestLargeHeap", config.requestLargeHeap)
         }
         return root.toString(2)
     }
 
     /**
      * Rewrites binary AndroidManifest.xml string pool, replacing old package name
-     * and internal authority identifiers with the clone package name.
+     * and mangling all ContentProvider authority identifiers with the clone suffix to
+     * prevent INSTALL_FAILED_CONFLICTING_PROVIDER.
      */
-    fun patchBinaryManifest(data: ByteArray, oldPkg: String, newPkg: String): ByteArray {
+    fun patchBinaryManifest(data: ByteArray, oldPkg: String, newPkg: String, cloneNumber: Int = 1): ByteArray {
         try {
             val bb = ByteBuffer.wrap(data).order(ByteOrder.LITTLE_ENDIAN)
             val magic = bb.getInt(0)
@@ -256,9 +330,20 @@ class ApkPatcherEngine(private val context: Context) {
                 }
             }
 
-            // Replace package name occurrences
+            val cloneSuffix = "_clone$cloneNumber"
+
+            // Replace package name and mangle ContentProvider authorities
             val newStrings = strings.map { str ->
-                if (str.contains(oldPkg)) str.replace(oldPkg, newPkg) else str
+                when {
+                    str == oldPkg -> newPkg
+                    str.startsWith("$oldPkg.") -> newPkg + str.substring(oldPkg.length)
+                    str.contains(oldPkg) -> str.replace(oldPkg, newPkg)
+                    // If it is isSplitRequired, disable it so merged APK installs as standalone
+                    str == "isSplitRequired" -> "isSplitDisabled"
+                    // Mangle third-party provider authorities (e.g. androidx.startup, FacebookContentProvider)
+                    isProviderAuthority(str) && !str.contains(cloneSuffix) -> str + cloneSuffix
+                    else -> str
+                }
             }
 
             // Re-encode strings
@@ -343,6 +428,17 @@ class ApkPatcherEngine(private val context: Context) {
             Log.e(TAG, "Error rewriting AXML manifest", e)
             return data
         }
+    }
+
+    private fun isProviderAuthority(str: String): Boolean {
+        return (str.contains(".provider") ||
+                str.contains("startup") ||
+                str.contains("lifecycle") ||
+                str.contains("FacebookContentProvider") ||
+                str.contains("FileProvider") ||
+                str.contains(".authorities")) &&
+                !str.contains(" ") &&
+                str.length < 150
     }
 
     /**
