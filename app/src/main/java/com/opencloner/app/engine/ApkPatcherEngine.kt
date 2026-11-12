@@ -18,7 +18,6 @@ import java.io.FileOutputStream
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.nio.charset.StandardCharsets
-import java.security.KeyStore
 import java.security.PrivateKey
 import java.security.cert.X509Certificate
 import java.util.zip.ZipEntry
@@ -98,9 +97,25 @@ class ApkPatcherEngine(private val context: Context) {
             zipIn.close()
 
             // Merge Split APKs (Critical for games like 8 Ball Pool and apps like Gemini)
-            if (config.splitApkPaths.isNotEmpty()) {
-                val splitCount = config.splitApkPaths.size
-                config.splitApkPaths.forEachIndexed { index, splitPath ->
+            val splitsToMerge = mutableListOf<String>()
+            splitsToMerge.addAll(config.splitApkPaths)
+
+            // Auto-detect sibling split_*.apk in source directory if not already included
+            try {
+                val parentDir = sourceApk.parentFile
+                if (parentDir != null && parentDir.exists() && parentDir.isDirectory) {
+                    val siblingSplits = parentDir.listFiles { f ->
+                        f.isFile && f.name.endsWith(".apk") && f.name != sourceApk.name && !splitsToMerge.contains(f.absolutePath)
+                    }
+                    siblingSplits?.forEach { splitsToMerge.add(it.absolutePath) }
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "Could not scan sibling splits", e)
+            }
+
+            if (splitsToMerge.isNotEmpty()) {
+                val splitCount = splitsToMerge.size
+                splitsToMerge.forEachIndexed { index, splitPath ->
                     val splitFile = File(splitPath)
                     if (splitFile.exists() && splitFile.isFile) {
                         val progress = 0.40f + (0.25f * ((index + 1).toFloat() / splitCount))
@@ -111,17 +126,27 @@ class ApkPatcherEngine(private val context: Context) {
                             while (splitEntry != null) {
                                 val sName = splitEntry.name
                                 if (!sName.startsWith("META-INF/") &&
-                                    sName != "AndroidManifest.xml" &&
-                                    !existingEntries.contains(sName)) {
+                                    sName != "AndroidManifest.xml") {
 
-                                    existingEntries.add(sName)
-                                    val newEntry = ZipEntry(sName)
-                                    zipOut.putNextEntry(newEntry)
-                                    var bytesRead: Int
-                                    while (splitZip.read(buffer).also { bytesRead = it } != -1) {
-                                        zipOut.write(buffer, 0, bytesRead)
+                                    var targetName = sName
+                                    if (sName.startsWith("classes") && sName.endsWith(".dex") && existingEntries.contains(sName)) {
+                                        var dexIndex = 2
+                                        while (existingEntries.contains("classes$dexIndex.dex")) {
+                                            dexIndex++
+                                        }
+                                        targetName = "classes$dexIndex.dex"
                                     }
-                                    zipOut.closeEntry()
+
+                                    if (!existingEntries.contains(targetName)) {
+                                        existingEntries.add(targetName)
+                                        val newEntry = ZipEntry(targetName)
+                                        zipOut.putNextEntry(newEntry)
+                                        var bytesRead: Int
+                                        while (splitZip.read(buffer).also { bytesRead = it } != -1) {
+                                            zipOut.write(buffer, 0, bytesRead)
+                                        }
+                                        zipOut.closeEntry()
+                                    }
                                 }
                                 splitEntry = splitZip.nextEntry
                             }
@@ -143,12 +168,13 @@ class ApkPatcherEngine(private val context: Context) {
             zipOut.finish()
             zipOut.close()
 
-            onProgress("Signing APK with Android keystore...", 0.88f)
+            onProgress("Signing APK with direct RSA keys...", 0.88f)
             val signSuccess = signApk(unsignedApk, finalSignedApk)
-            unsignedApk.delete()
+            if (unsignedApk.exists()) unsignedApk.delete()
 
-            if (!signSuccess && !finalSignedApk.exists()) {
-                Log.e(TAG, "Signing failed and no output APK was generated.")
+            if (!signSuccess || !finalSignedApk.exists()) {
+                Log.e(TAG, "Signing failed. Aborting clone generation to prevent unsigned APK output.")
+                if (finalSignedApk.exists()) finalSignedApk.delete()
                 return null
             }
 
@@ -163,20 +189,16 @@ class ApkPatcherEngine(private val context: Context) {
     }
 
     /**
-     * Signs the generated APK with APK Signature Scheme v1 and v2 using bundled keystore.
+     * Signs the generated APK with APK Signature Scheme v1 and v2 using embedded direct keys.
      */
     private fun signApk(unsignedApk: File, signedApk: File): Boolean {
         return try {
-            val ks = KeyStore.getInstance("PKCS12")
-            context.assets.open("opencloner_debug.keystore").use { stream ->
-                ks.load(stream, "android".toCharArray())
-            }
-            val key = ks.getKey("opencloner", "android".toCharArray()) as PrivateKey
-            val cert = ks.getCertificate("opencloner") as X509Certificate
+            val privateKey = ApkSignerKeys.getPrivateKey()
+            val cert = ApkSignerKeys.getCertificate()
 
             val signerConfig = ApkSigner.SignerConfig.Builder(
                 "opencloner",
-                key,
+                privateKey,
                 listOf(cert)
             ).build()
 
@@ -188,12 +210,11 @@ class ApkPatcherEngine(private val context: Context) {
                 .build()
 
             signer.sign()
-            Log.i(TAG, "APK signed successfully with v1 and v2 schemes!")
+            Log.i(TAG, "APK signed successfully with v1 and v2 schemes via ApkSignerKeys!")
             true
         } catch (e: Exception) {
-            Log.e(TAG, "ApkSigner failed; fallback to copy", e)
-            unsignedApk.copyTo(signedApk, overwrite = true)
-            true
+            Log.e(TAG, "ApkSigner failed to sign APK", e)
+            false
         }
     }
 
@@ -330,9 +351,7 @@ class ApkPatcherEngine(private val context: Context) {
                 }
             }
 
-            val cloneSuffix = "_clone$cloneNumber"
-
-            // Replace package name and mangle ContentProvider authorities
+            // Replace package name safely without mangling class names
             val newStrings = strings.map { str ->
                 when {
                     str == oldPkg -> newPkg
@@ -340,8 +359,6 @@ class ApkPatcherEngine(private val context: Context) {
                     str.contains(oldPkg) -> str.replace(oldPkg, newPkg)
                     // If it is isSplitRequired, disable it so merged APK installs as standalone
                     str == "isSplitRequired" -> "isSplitDisabled"
-                    // Mangle third-party provider authorities (e.g. androidx.startup, FacebookContentProvider)
-                    isProviderAuthority(str) && !str.contains(cloneSuffix) -> str + cloneSuffix
                     else -> str
                 }
             }
@@ -428,17 +445,6 @@ class ApkPatcherEngine(private val context: Context) {
             Log.e(TAG, "Error rewriting AXML manifest", e)
             return data
         }
-    }
-
-    private fun isProviderAuthority(str: String): Boolean {
-        return (str.contains(".provider") ||
-                str.contains("startup") ||
-                str.contains("lifecycle") ||
-                str.contains("FacebookContentProvider") ||
-                str.contains("FileProvider") ||
-                str.contains(".authorities")) &&
-                !str.contains(" ") &&
-                str.length < 150
     }
 
     /**
