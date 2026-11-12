@@ -90,7 +90,7 @@ fun HomeScreen(
             item {
                 when (profileState) {
                     is ProfileState.Unprovisioned -> {
-                        UnprovisionedBanner(onSetup = onSetupSandbox)
+                        OpenClonerHeroBanner(onCloneClick = onCloneNewClick)
                     }
                     is ProfileState.Active -> {
                         ActiveProfileCard(
@@ -138,7 +138,7 @@ fun HomeScreen(
 }
 
 @Composable
-fun UnprovisionedBanner(onSetup: () -> Unit) {
+fun OpenClonerHeroBanner(onCloneClick: () -> Unit) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = DarkSurface),
@@ -147,14 +147,14 @@ fun UnprovisionedBanner(onSetup: () -> Unit) {
         Column(modifier = Modifier.padding(20.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(
-                    imageVector = Icons.Default.Security,
+                    imageVector = Icons.Default.Layers,
                     contentDescription = null,
                     tint = CyanAccent,
                     modifier = Modifier.size(28.dp)
                 )
                 Spacer(modifier = Modifier.width(12.dp))
                 Text(
-                    text = "Sandbox Not Configured",
+                    text = "OpenCloner Engine",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = TextPrimary
@@ -162,20 +162,20 @@ fun UnprovisionedBanner(onSetup: () -> Unit) {
             }
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = "OpenCloner utilizes Android's native isolated Work Profile container. It gives you 100% ban-proof dual apps with zero root or ads.",
+                text = "Clone installed apps with custom names, tinted icons, fake GPS, randomized Android ID, and privacy locks. Zero root or setup required.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = TextSecondary
             )
             Spacer(modifier = Modifier.height(16.dp))
             Button(
-                onClick = onSetup,
+                onClick = onCloneClick,
                 colors = ButtonDefaults.buttonColors(containerColor = IndigoPrimary),
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(10.dp)
             ) {
-                Icon(Icons.Default.FlashOn, contentDescription = null)
+                Icon(Icons.Default.AddCircle, contentDescription = null)
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("Activate Sandbox (1-Click Setup)", fontWeight = FontWeight.Bold)
+                Text("Select App to Clone", fontWeight = FontWeight.Bold)
             }
         }
     }

@@ -66,5 +66,8 @@ dependencies {
     implementation(libs.shizuku.api)
     implementation(libs.shizuku.provider)
 
+    // Official Android APK Signer (v1, v2, v3 schemes)
+    implementation(libs.apksig)
+
     debugImplementation(libs.androidx.ui.tooling)
 }

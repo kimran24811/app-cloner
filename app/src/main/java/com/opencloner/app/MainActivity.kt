@@ -292,7 +292,14 @@ class MainActivity : ComponentActivity() {
                     ScreenTab.SETTINGS -> {
                         SettingsScreen(
                             onTriggerShizukuRequest = {
-                                ShizukuBridge.requestShizukuPermission(1001)
+                                val ok = ShizukuBridge.requestShizukuPermission(1001)
+                                if (!ok) {
+                                    Toast.makeText(
+                                        this@MainActivity,
+                                        "Shizuku service is not running. (Notice: Standalone cloning works without Shizuku!)",
+                                        Toast.LENGTH_LONG
+                                    ).show()
+                                }
                             }
                         )
                     }

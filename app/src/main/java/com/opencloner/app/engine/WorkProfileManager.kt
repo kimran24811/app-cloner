@@ -140,9 +140,19 @@ class WorkProfileManager private constructor(private val context: Context) {
     }
 
     /**
-     * Launches a cloned app inside the isolated sandbox container.
+     * Launches a cloned app (checks both standalone installed clones and work profile sandbox).
      */
     fun launchClonedApp(packageName: String): Boolean {
+        val pm = context.packageManager
+        // 1. Try launching standalone cloned APK on primary user
+        val launchIntent = pm.getLaunchIntentForPackage(packageName)
+        if (launchIntent != null) {
+            launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            context.startActivity(launchIntent)
+            return true
+        }
+
+        // 2. Try launching inside work profile
         val workUser = getWorkProfileUser() ?: return false
         val activities = launcherApps.getActivityList(packageName, workUser)
         return if (activities.isNotEmpty()) {
@@ -150,7 +160,7 @@ class WorkProfileManager private constructor(private val context: Context) {
             launcherApps.startMainActivity(component, workUser, null, null)
             true
         } else {
-            Log.w(TAG, "Could not find launcher activity for $packageName in sandbox.")
+            Log.w(TAG, "Could not find launcher activity for $packageName.")
             false
         }
     }
@@ -187,22 +197,60 @@ class WorkProfileManager private constructor(private val context: Context) {
     }
 
     /**
-     * Returns all applications running inside the cloned profile.
+     * Returns all applications running inside standalone APK clones and work profile.
      */
     fun getClonedApps(): List<AppItem> {
-        val workUser = getWorkProfileUser() ?: return emptyList()
-        val activities = launcherApps.getActivityList(null, workUser)
+        val result = mutableListOf<AppItem>()
         val pm = context.packageManager
 
-        return activities.map { activityInfo ->
-            val appInfo = activityInfo.applicationInfo
-            AppItem(
-                packageName = appInfo.packageName,
-                appName = activityInfo.label.toString(),
-                icon = activityInfo.getBadgedIcon(0),
-                isCloned = true
-            )
+        // 1. Standalone clones on the primary user space
+        try {
+            val installed = pm.getInstalledPackages(0)
+            for (pkg in installed) {
+                if (pkg.packageName.contains(".clone") || pkg.packageName.endsWith(".cloned")) {
+                    val appName = pkg.applicationInfo.loadLabel(pm).toString()
+                    val icon = pkg.applicationInfo.loadIcon(pm)
+                    result.add(
+                        AppItem(
+                            packageName = pkg.packageName,
+                            appName = appName,
+                            icon = icon,
+                            isSystemApp = false,
+                            isCloned = true,
+                            sourceApkPath = pkg.applicationInfo.sourceDir ?: ""
+                        )
+                    )
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error querying installed standalone clones", e)
         }
+
+        // 2. Work profile clones
+        val workUser = getWorkProfileUser()
+        if (workUser != null) {
+            try {
+                val activities = launcherApps.getActivityList(null, workUser)
+                for (activityInfo in activities) {
+                    val appInfo = activityInfo.applicationInfo
+                    if (result.none { it.packageName == appInfo.packageName }) {
+                        result.add(
+                            AppItem(
+                                packageName = appInfo.packageName,
+                                appName = activityInfo.label.toString(),
+                                icon = activityInfo.getBadgedIcon(0),
+                                isCloned = true,
+                                sourceApkPath = appInfo.sourceDir ?: ""
+                            )
+                        )
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error querying work profile apps", e)
+            }
+        }
+
+        return result
     }
 
     /**

@@ -59,7 +59,7 @@ fun SettingsScreen(
                         }
                         Spacer(modifier = Modifier.height(6.dp))
                         Text(
-                            text = "Shizuku allows silent app installations and fine-grained sandbox control via ADB without needing root.",
+                            text = "Optional helper for silent background installation. OpenCloner standalone engine clones and installs apps directly without requiring Shizuku.",
                             style = MaterialTheme.typography.bodyMedium,
                             color = TextSecondary
                         )
@@ -70,8 +70,8 @@ fun SettingsScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = if (hasShizukuPerm) "Connected & Authorized" else "Not connected",
-                                color = if (hasShizukuPerm) EmeraldSuccess else AmberWarning,
+                                text = if (hasShizukuPerm) "Connected & Authorized" else "Optional (Not Running)",
+                                color = if (hasShizukuPerm) EmeraldSuccess else CyanAccent,
                                 style = MaterialTheme.typography.labelSmall,
                                 fontWeight = FontWeight.Bold
                             )
@@ -81,7 +81,7 @@ fun SettingsScreen(
                                     colors = ButtonDefaults.buttonColors(containerColor = IndigoPrimary),
                                     shape = RoundedCornerShape(8.dp)
                                 ) {
-                                    Text("Grant Access")
+                                    Text("Connect Shizuku")
                                 }
                             }
                         }

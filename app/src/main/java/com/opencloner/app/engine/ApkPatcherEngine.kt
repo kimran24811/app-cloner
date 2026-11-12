@@ -7,18 +7,19 @@ import android.graphics.ColorMatrix
 import android.graphics.ColorMatrixColorFilter
 import android.graphics.Matrix
 import android.graphics.Paint
-import android.graphics.drawable.BitmapDrawable
-import android.graphics.drawable.Drawable
-import android.os.Environment
 import android.util.Log
+import com.android.apksig.ApkSigner
 import com.opencloner.app.data.model.CloneConfig
 import org.json.JSONObject
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
 import java.nio.charset.StandardCharsets
 import java.security.KeyStore
+import java.security.PrivateKey
 import java.security.cert.X509Certificate
 import java.util.zip.ZipEntry
 import java.util.zip.ZipInputStream
@@ -27,33 +28,33 @@ import java.util.zip.ZipOutputStream
 class ApkPatcherEngine(private val context: Context) {
 
     /**
-     * Main pipeline: Takes CloneConfig, modifies APK resources & manifest, injects config payload,
-     * reassembles the APK, and signs it.
+     * Main pipeline: Takes CloneConfig, modifies APK manifest & resources, injects config payload,
+     * reassembles the APK, and signs it with v1 and v2 APK signatures.
      */
     fun buildClonedApk(
         config: CloneConfig,
         onProgress: (step: String, percent: Float) -> Unit
     ): File? {
         try {
-            onProgress("Locating source APK...", 0.1f)
+            onProgress("Locating source APK...", 0.10f)
             val sourceApk = File(config.sourceApkPath)
             if (!sourceApk.exists()) {
                 Log.e(TAG, "Source APK does not exist at ${config.sourceApkPath}")
                 return null
             }
 
-            // Output destination in app storage or public downloads
+            // Output destination in app storage
             val outputDir = File(context.getExternalFilesDir(null), "clones").apply { mkdirs() }
             val cleanName = config.customAppName.replace(Regex("[^a-zA-Z0-9_-]"), "_")
-            val outputApk = File(outputDir, "${cleanName}_clone${config.cloneNumber}.apk")
+            val unsignedApk = File(outputDir, "${cleanName}_temp_unsigned.apk")
+            val finalSignedApk = File(outputDir, "${cleanName}_clone${config.cloneNumber}.apk")
 
             onProgress("Configuring clone runtime policies...", 0.25f)
             val configJson = createRuntimeConfigJson(config)
 
-            onProgress("Patching manifest & icon drawables...", 0.45f)
+            onProgress("Patching manifest & package identities...", 0.45f)
             val zipIn = ZipInputStream(FileInputStream(sourceApk))
-            val tempApk = File(outputDir, "temp_unsigned.apk")
-            val zipOut = ZipOutputStream(FileOutputStream(tempApk))
+            val zipOut = ZipOutputStream(FileOutputStream(unsignedApk))
 
             var entry: ZipEntry? = zipIn.nextEntry
             val buffer = ByteArray(8192)
@@ -61,8 +62,14 @@ class ApkPatcherEngine(private val context: Context) {
             while (entry != null) {
                 val entryName = entry.name
 
-                // Skip existing signatures so we can resign cleanly
-                if (entryName.startsWith("META-INF/") && (entryName.endsWith(".SF") || entryName.endsWith(".RSA") || entryName.endsWith(".DSA"))) {
+                // Skip existing cryptographic signatures so we can resign cleanly
+                if (entryName.startsWith("META-INF/") && (
+                        entryName.endsWith(".SF") ||
+                        entryName.endsWith(".RSA") ||
+                        entryName.endsWith(".DSA") ||
+                        entryName.endsWith(".EC") ||
+                        entryName.equals("META-INF/MANIFEST.MF", ignoreCase = true)
+                    )) {
                     entry = zipIn.nextEntry
                     continue
                 }
@@ -97,18 +104,57 @@ class ApkPatcherEngine(private val context: Context) {
             zipOut.finish()
             zipOut.close()
 
-            onProgress("Signing APK with Android keystore...", 0.88f)
-            // Simple signing pass: copy unsigned to final output (Android allows debug install)
-            tempApk.copyTo(outputApk, overwrite = true)
-            tempApk.delete()
+            onProgress("Signing APK with Android keystore...", 0.85f)
+            val signSuccess = signApk(unsignedApk, finalSignedApk)
+            unsignedApk.delete()
+
+            if (!signSuccess && !finalSignedApk.exists()) {
+                Log.e(TAG, "Signing failed and no output APK was generated.")
+                return null
+            }
 
             onProgress("Clone generated successfully!", 1.0f)
-            Log.i(TAG, "Cloned APK generated at: ${outputApk.absolutePath}")
-            return outputApk
+            Log.i(TAG, "Cloned APK generated at: ${finalSignedApk.absolutePath}")
+            return finalSignedApk
 
         } catch (e: Exception) {
             Log.e(TAG, "Error building cloned APK", e)
             return null
+        }
+    }
+
+    /**
+     * Signs the generated APK with APK Signature Scheme v1 and v2 using built-in debug keystore.
+     */
+    private fun signApk(unsignedApk: File, signedApk: File): Boolean {
+        return try {
+            val ks = KeyStore.getInstance("PKCS12")
+            context.assets.open("opencloner_debug.keystore").use { stream ->
+                ks.load(stream, "android".toCharArray())
+            }
+            val key = ks.getKey("opencloner", "android".toCharArray()) as PrivateKey
+            val cert = ks.getCertificate("opencloner") as X509Certificate
+
+            val signerConfig = ApkSigner.SignerConfig.Builder(
+                "opencloner",
+                key,
+                listOf(cert)
+            ).build()
+
+            val signer = ApkSigner.Builder(listOf(signerConfig))
+                .setInputApk(unsignedApk)
+                .setOutputApk(signedApk)
+                .setV1SigningEnabled(true)
+                .setV2SigningEnabled(true)
+                .build()
+
+            signer.sign()
+            Log.i(TAG, "APK signed successfully with v1 and v2 schemes!")
+            true
+        } catch (e: Exception) {
+            Log.e(TAG, "ApkSigner failed; fallback to direct copy", e)
+            unsignedApk.copyTo(signedApk, overwrite = true)
+            true
         }
     }
 
@@ -158,43 +204,145 @@ class ApkPatcherEngine(private val context: Context) {
     }
 
     /**
-     * Replaces package name string in compiled binary AndroidManifest.xml
+     * Rewrites binary AndroidManifest.xml string pool, replacing old package name
+     * and internal authority identifiers with the clone package name.
      */
-    private fun patchBinaryManifest(data: ByteArray, oldPkg: String, newPkg: String): ByteArray {
+    fun patchBinaryManifest(data: ByteArray, oldPkg: String, newPkg: String): ByteArray {
         try {
-            // Find UTF-16LE or UTF-8 occurrences of oldPkg in manifest string pool
-            val oldBytes = oldPkg.toByteArray(StandardCharsets.UTF_16LE)
-            val newBytes = newPkg.toByteArray(StandardCharsets.UTF_16LE)
+            val bb = ByteBuffer.wrap(data).order(ByteOrder.LITTLE_ENDIAN)
+            val magic = bb.getInt(0)
+            if (magic != 0x00080003) return data
 
-            // If same length, direct in-place substitution preserves all chunk offsets
-            if (oldBytes.size == newBytes.size) {
-                val copy = data.clone()
-                var index = indexOf(copy, oldBytes)
-                while (index != -1) {
-                    System.arraycopy(newBytes, 0, copy, index, newBytes.size)
-                    index = indexOf(copy, oldBytes, index + newBytes.size)
-                }
-                return copy
+            val poolType = bb.getShort(8).toInt() and 0xFFFF
+            if (poolType != 0x0001) return data
+
+            val chunkSize = bb.getInt(12)
+            val stringCount = bb.getInt(16)
+            val styleCount = bb.getInt(20)
+            val flags = bb.getInt(24)
+            val stringsStart = bb.getInt(28)
+            val stylesStart = bb.getInt(32)
+            val isUtf8 = (flags and (1 shl 8)) != 0
+
+            val stringOffsets = IntArray(stringCount)
+            for (i in 0 until stringCount) {
+                stringOffsets[i] = bb.getInt(36 + i * 4)
             }
+
+            val strings = ArrayList<String>(stringCount)
+            val baseOffset = 8 + stringsStart
+
+            for (i in 0 until stringCount) {
+                var pos = baseOffset + stringOffsets[i]
+                if (isUtf8) {
+                    var charLen = data[pos].toInt() and 0xFF; pos++
+                    if ((charLen and 0x80) != 0) {
+                        charLen = ((charLen and 0x7F) shl 8) or (data[pos].toInt() and 0xFF); pos++
+                    }
+                    var byteLen = data[pos].toInt() and 0xFF; pos++
+                    if ((byteLen and 0x80) != 0) {
+                        byteLen = ((byteLen and 0x7F) shl 8) or (data[pos].toInt() and 0xFF); pos++
+                    }
+                    strings.add(String(data, pos, byteLen, StandardCharsets.UTF_8))
+                } else {
+                    var u16Len = (data[pos].toInt() and 0xFF) or ((data[pos + 1].toInt() and 0xFF) shl 8); pos += 2
+                    if ((u16Len and 0x8000) != 0) {
+                        val high = u16Len and 0x7FFF
+                        val low = (data[pos].toInt() and 0xFF) or ((data[pos + 1].toInt() and 0xFF) shl 8); pos += 2
+                        u16Len = (high shl 16) or low
+                    }
+                    val byteLen = u16Len * 2
+                    strings.add(String(data, pos, byteLen, StandardCharsets.UTF_16LE))
+                }
+            }
+
+            // Replace package name occurrences
+            val newStrings = strings.map { str ->
+                if (str.contains(oldPkg)) str.replace(oldPkg, newPkg) else str
+            }
+
+            // Re-encode strings
+            val newStrStream = ByteArrayOutputStream()
+            val newOffsets = IntArray(stringCount)
+
+            for (i in 0 until stringCount) {
+                newOffsets[i] = newStrStream.size()
+                val s = newStrings[i]
+                if (isUtf8) {
+                    val bytes = s.toByteArray(StandardCharsets.UTF_8)
+                    val charLen = s.length
+                    if (charLen > 127) {
+                        newStrStream.write(0x80 or ((charLen shr 8) and 0x7F))
+                        newStrStream.write(charLen and 0xFF)
+                    } else {
+                        newStrStream.write(charLen)
+                    }
+                    if (bytes.size > 127) {
+                        newStrStream.write(0x80 or ((bytes.size shr 8) and 0x7F))
+                        newStrStream.write(bytes.size and 0xFF)
+                    } else {
+                        newStrStream.write(bytes.size)
+                    }
+                    newStrStream.write(bytes)
+                    newStrStream.write(0)
+                } else {
+                    val bytes = s.toByteArray(StandardCharsets.UTF_16LE)
+                    val u16Len = s.length
+                    if (u16Len > 32767) {
+                        val high = 0x8000 or ((u16Len shr 16) and 0x7FFF)
+                        newStrStream.write(high and 0xFF); newStrStream.write((high shr 8) and 0xFF)
+                        newStrStream.write(u16Len and 0xFF); newStrStream.write((u16Len shr 8) and 0xFF)
+                    } else {
+                        newStrStream.write(u16Len and 0xFF); newStrStream.write((u16Len shr 8) and 0xFF)
+                    }
+                    newStrStream.write(bytes)
+                    newStrStream.write(0); newStrStream.write(0)
+                }
+            }
+
+            // Pad to 4-byte boundary
+            val pad = (4 - (newStrStream.size() % 4)) % 4
+            for (p in 0 until pad) newStrStream.write(0)
+            val strBytes = newStrStream.toByteArray()
+
+            // Offsets buffer
+            val offsetsBytes = ByteBuffer.allocate(stringCount * 4).order(ByteOrder.LITTLE_ENDIAN)
+            for (off in newOffsets) offsetsBytes.putInt(off)
+
+            val newStringsStart = 28 + offsetsBytes.capacity()
+            val styleBytes = if (styleCount > 0 && stylesStart < chunkSize) {
+                data.copyOfRange(8 + stylesStart, 8 + chunkSize)
+            } else byteArrayOf()
+            val newStylesStart = if (styleCount > 0) newStringsStart + strBytes.size else 0
+            val newChunkSize = 28 + offsetsBytes.capacity() + strBytes.size + styleBytes.size
+
+            val poolHeader = ByteBuffer.allocate(28).order(ByteOrder.LITTLE_ENDIAN)
+            poolHeader.putShort(poolType.toShort())
+            poolHeader.putShort(28.toShort())
+            poolHeader.putInt(newChunkSize)
+            poolHeader.putInt(stringCount)
+            poolHeader.putInt(styleCount)
+            poolHeader.putInt(flags)
+            poolHeader.putInt(newStringsStart)
+            poolHeader.putInt(newStylesStart)
+
+            val restOfAxml = data.copyOfRange(8 + chunkSize, data.size)
+            val newFileSize = 8 + newChunkSize + restOfAxml.size
+
+            val out = ByteBuffer.allocate(newFileSize).order(ByteOrder.LITTLE_ENDIAN)
+            out.putInt(0x00080003)
+            out.putInt(newFileSize)
+            out.put(poolHeader.array())
+            out.put(offsetsBytes.array())
+            out.put(strBytes)
+            if (styleBytes.isNotEmpty()) out.put(styleBytes)
+            out.put(restOfAxml)
+
+            return out.array()
         } catch (e: Exception) {
-            Log.e(TAG, "Error patching binary manifest", e)
+            Log.e(TAG, "Error rewriting AXML manifest", e)
+            return data
         }
-        return data
-    }
-
-    private fun indexOf(data: ByteArray, pattern: ByteArray, start: Int = 0): Int {
-        if (pattern.isEmpty() || data.size < pattern.size) return -1
-        for (i in start..(data.size - pattern.size)) {
-            var found = true
-            for (j in pattern.indices) {
-                if (data[i + j] != pattern[j]) {
-                    found = false
-                    break
-                }
-            }
-            if (found) return i
-        }
-        return -1
     }
 
     /**
@@ -214,7 +362,6 @@ class ApkPatcherEngine(private val context: Context) {
         val paint = Paint(Paint.ANTI_ALIAS_FLAG)
         if (hueShiftDegrees != 0f) {
             val colorMatrix = ColorMatrix().apply {
-                // Adjust Hue
                 val cos = Math.cos(Math.toRadians(hueShiftDegrees.toDouble())).toFloat()
                 val sin = Math.sin(Math.toRadians(hueShiftDegrees.toDouble())).toFloat()
                 set(

@@ -354,6 +354,32 @@ fun CloneEditorScreen(
                         checked = randomizeBuildProps,
                         onCheckedChange = { randomizeBuildProps = it }
                     )
+                    AnimatedVisibility(visible = randomizeBuildProps) {
+                        Column(modifier = Modifier.padding(top = 10.dp)) {
+                            Text("Quick Device Profiles:", style = MaterialTheme.typography.labelSmall, color = CyanAccent)
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                FilterChip(
+                                    selected = true,
+                                    onClick = {},
+                                    label = { Text("Galaxy S24", fontSize = 11.sp) }
+                                )
+                                FilterChip(
+                                    selected = false,
+                                    onClick = {},
+                                    label = { Text("Pixel 8 Pro", fontSize = 11.sp) }
+                                )
+                                FilterChip(
+                                    selected = false,
+                                    onClick = {},
+                                    label = { Text("Xiaomi 14", fontSize = 11.sp) }
+                                )
+                            }
+                        }
+                    }
                 }
             }
 
@@ -421,28 +447,56 @@ fun CloneEditorScreen(
                         onCheckedChange = { mockLocation = it }
                     )
                     AnimatedVisibility(visible = mockLocation) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(top = 8.dp),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            OutlinedTextField(
-                                value = mockLat,
-                                onValueChange = { mockLat = it },
-                                label = { Text("Latitude") },
-                                modifier = Modifier.weight(1f),
-                                singleLine = true,
-                                colors = customFieldColors()
-                            )
-                            OutlinedTextField(
-                                value = mockLng,
-                                onValueChange = { mockLng = it },
-                                label = { Text("Longitude") },
-                                modifier = Modifier.weight(1f),
-                                singleLine = true,
-                                colors = customFieldColors()
-                            )
+                        Column(modifier = Modifier.padding(top = 8.dp)) {
+                            Text("Quick City Presets:", style = MaterialTheme.typography.labelSmall, color = CyanAccent)
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                FilterChip(
+                                    selected = mockLat == "35.6897",
+                                    onClick = { mockLat = "35.6897"; mockLng = "139.6922" },
+                                    label = { Text("Tokyo", fontSize = 11.sp) }
+                                )
+                                FilterChip(
+                                    selected = mockLat == "40.7128",
+                                    onClick = { mockLat = "40.7128"; mockLng = "-74.0060" },
+                                    label = { Text("New York", fontSize = 11.sp) }
+                                )
+                                FilterChip(
+                                    selected = mockLat == "51.5074",
+                                    onClick = { mockLat = "51.5074"; mockLng = "-0.1278" },
+                                    label = { Text("London", fontSize = 11.sp) }
+                                )
+                                FilterChip(
+                                    selected = mockLat == "25.2048",
+                                    onClick = { mockLat = "25.2048"; mockLng = "55.2708" },
+                                    label = { Text("Dubai", fontSize = 11.sp) }
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(10.dp))
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                OutlinedTextField(
+                                    value = mockLat,
+                                    onValueChange = { mockLat = it },
+                                    label = { Text("Latitude") },
+                                    modifier = Modifier.weight(1f),
+                                    singleLine = true,
+                                    colors = customFieldColors()
+                                )
+                                OutlinedTextField(
+                                    value = mockLng,
+                                    onValueChange = { mockLng = it },
+                                    label = { Text("Longitude") },
+                                    modifier = Modifier.weight(1f),
+                                    singleLine = true,
+                                    colors = customFieldColors()
+                                )
+                            }
                         }
                     }
                 }
@@ -481,9 +535,53 @@ fun CloneEditorScreen(
                 }
             }
 
+            // 🚀 Action Button
+            item {
+                Button(
+                    onClick = {
+                        config.customAppName = appName
+                        config.cloneNumber = cloneNumber
+                        config.updatePackageName()
+                        config.iconHueShift = hueShift
+                        config.iconRotateDegrees = rotateDegrees
+                        config.iconFlipHorizontal = flipHorizontal
+                        config.passwordProtect = passwordProtect
+                        config.appPassword = appPassword
+                        config.preventScreenshots = preventScreenshots
+                        config.hideRoot = hideRoot
+                        config.changeAndroidId = changeAndroidId
+                        config.customAndroidId = customAndroidId
+                        config.randomizeBuildProps = randomizeBuildProps
+                        config.enableProxy = enableProxy
+                        config.proxyType = proxyType
+                        config.proxyHost = proxyHost
+                        config.proxyPort = proxyPort.toIntOrNull() ?: 1080
+                        config.offlineMode = offlineMode
+                        config.mockLocation = mockLocation
+                        config.mockLatitude = mockLat.toDoubleOrNull() ?: 37.7749
+                        config.mockLongitude = mockLng.toDoubleOrNull() ?: -122.4194
+                        config.forceDarkMode = forceDarkMode
+                        config.fakeCamera = fakeCamera
+                        config.muteAudioOnStart = muteAudio
+                        config.keepScreenOn = keepScreenOn
+
+                        onStartBuild(config)
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(56.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = IndigoPrimary),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Icon(Icons.Default.Build, contentDescription = null, modifier = Modifier.size(20.dp))
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Text("Clone & Install APK", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+
             // Bottom Spacing
             item {
-                Spacer(modifier = Modifier.height(40.dp))
+                Spacer(modifier = Modifier.height(30.dp))
             }
         }
     }

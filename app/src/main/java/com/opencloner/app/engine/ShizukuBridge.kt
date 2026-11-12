@@ -26,9 +26,12 @@ object ShizukuBridge {
         }
     }
 
-    fun requestShizukuPermission(requestCode: Int) {
-        if (isShizukuAvailable() && !hasShizukuPermission()) {
+    fun requestShizukuPermission(requestCode: Int): Boolean {
+        return if (isShizukuAvailable() && !hasShizukuPermission()) {
             Shizuku.requestPermission(requestCode)
+            true
+        } else {
+            false
         }
     }
 
