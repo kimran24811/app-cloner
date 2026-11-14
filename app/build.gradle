@@ -45,8 +45,6 @@ android {
 }
 
 dependencies {
-    implementation fileTree(dir: "libs", include: ["*.jar"])
-    implementation(name: 'StateView-v3.0.6', ext: 'aar')
     implementation(name: 'catloading-release', ext: 'aar')
     implementation(name: 'floatingview-release', ext: 'aar')
     implementation project(':Bcore')
