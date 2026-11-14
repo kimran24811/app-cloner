@@ -1,84 +1,89 @@
-# OpenCloner
+# BlackBox - Virtual Engine
 
-> **A free, open-source, ban-proof Android app cloner & sandbox.**  
-> Built to replace predatory paywalls, "color packages", and broken signatures with native Android Enterprise multi-user sandboxing.
+<p align="center">
+  <img src="assets/usage.gif" alt="BlackBox Banner" width="100%"/>
+</p>
 
----
+BlackBox is a virtual engine that allows you to clone and run virtual applications on Android devices without installing APKs. This project works on Android 5.0 to 14.0+ and supports multiple architectures (ARM64, ARMv7, x86).
 
-## 🌟 Why OpenCloner?
+## Overview
 
-App Cloner and traditional cloning tools rely on decompiling, patching smali bytecode, and re-signing APKs. This causes major issues:
-* **Account Bans:** Games (PUBG, Mobile Legends) and messaging apps (WhatsApp) detect signature changes and ban users.
-* **Broken Notifications:** Firebase Cloud Messaging (FCM) tokens fail because package names don't match Google credentials.
-* **Predatory Pricing:** Features locked behind "Blue/Orange packages", recurring $50/yr subscriptions, and arbitrary device blocks.
-* **Deprecated Target SDK:** Older cloners target Android 9 (API 28), causing installation blocks and crashes on Android 14, 15, and 16.
+This enhanced edition includes bug fixes, stability improvements, and Android 14+ compatibility tailored for modern devices.
 
-### The OpenCloner Solution:
-* ✅ **100% Free & Open-Source:** No subscriptions, no ads, no paywalled feature packs.
-* ✅ **Native Sandboxing:** Uses Android's official `DevicePolicyManager` (Work Profiles). The target app's original cryptographic signature is **never modified**, making it **100% ban-proof**.
-* ✅ **Working Push Notifications:** Google Play Services and FCM tokens work natively.
-* ✅ **Modern Android Support:** Built with Jetpack Compose, Kotlin 2.0, targeting **API 34/35+**.
-* ✅ **Intent-Driven Smart Presets:** Choose from 1-click presets (*Dual Social*, *Game Sanctuary*, *Burner/Privacy*, *Dev Suite*) instead of 500+ confusing checkboxes.
-* ✅ **Shizuku Integration:** Enables elevated management and silent operations without needing root.
+### Key Features
 
----
+*   **Virtual App Cloning**: Run multiple instances of applications.
+*   **Sandboxed Environment**: Isolated process execution.
+*   **No Root Required**: Runs entirely in userspace.
+*   **Multi-Architecture**: Support for 32-bit and 64-bit apps.
+*   **Device Spoofing**: Modify device information for virtual apps.
+*   **Fake Location**: Spoof GPS coordinates.
 
-## 🚀 Intent-Driven Presets
+## Requirements
 
-| Preset | Target Use Case | Key Protections |
-| :--- | :--- | :--- |
-| **Dual Social** | WhatsApp, Telegram, Messenger | Full background sync, dual media storage, native notifications. |
-| **Game Sanctuary** | Mobile Legends, PUBG, COD | Untouched signatures, zero hook detection, uncapped frame rate. |
-| **Burner / Privacy** | Testing untrusted apps, browser sandboxes | Zero cross-app queries, isolated contacts, auto-freeze on lock. |
-| **Dev Suite** | QA & Reverse Engineering | Direct logcat streaming, isolated storage inspection. |
+*   **Android Version**: Android 5.0 (API 21) or higher.
+*   **RAM**: 2GB minimum recommended.
+*   **Architecture**: ARMv7a, ARM64-v8a, x86.
 
----
+## Build Instructions
 
-## 🛠️ Project Structure
+### Prerequisites
+*   Android Studio (Arctic Fox or newer)
+*   JDK 17
+*   Android SDK 34+
+*   NDK (Version 29.0.13846066)
 
-```
-open-cloner/
-├── .github/workflows/
-│   └── build-apk.yml               # Free automated Cloud CI build pipeline
-├── app/
-│   ├── build.gradle.kts            # App module configuration (API 34, Compose)
-│   └── src/main/
-│       ├── AndroidManifest.xml     # Device Admin & Shizuku provider definitions
-│       ├── java/com/opencloner/app/
-│       │   ├── MainActivity.kt     # App entry, bottom navigation, provisioning flow
-│       │   ├── OpenClonerApp.kt    # Base Application class
-│       │   ├── data/model/         # Data contracts (AppItem, Presets, ProfileState)
-│       │   ├── engine/             # WorkProfileManager, CloneAdminReceiver, ShizukuBridge
-│       │   └── ui/                 # Material 3 Jetpack Compose Theme & Screens
-│       └── res/                    # Adaptive launcher icons, strings, admin policies
-├── gradle/
-│   ├── libs.versions.toml          # Centralized dependency catalog
-│   └── wrapper/                    # Gradle 8.7 Wrapper
-└── build.gradle.kts                # Top-level Gradle configuration
-```
+### Building from Source
 
----
-
-## 📦 How to Build the APK
-
-### Option 1: Automatic Cloud Build (Recommended for Non-Coders)
-Push this repository to your personal GitHub account. The included `.github/workflows/build-apk.yml` file will automatically compile the project on GitHub's cloud servers and provide a direct download link for the `.apk` file under the **Actions** tab.
-
-### Option 2: Local Build via Command Line
-Run the following command from the root project directory:
 ```bash
-# Windows
-set JAVA_HOME=C:\Program Files\Microsoft\jdk-17.0.21.21-hotspot
-.\gradlew.bat assembleDebug
+# Clone the repository
+git clone https://github.com/your-repo/NewBlackbox.git
+cd NewBlackbox
 
-# Linux / macOS
-export JAVA_HOME=/path/to/jdk-17
+# Build Debug APK
 ./gradlew assembleDebug
+
+# Build Release APK
+./gradlew assembleRelease
 ```
-The compiled APK will be output to:
-`app/build/outputs/apk/debug/app-debug.apk`
 
----
+## Integration
 
-## 📄 License
-This project is licensed under the **Apache License 2.0**.
+To use BlackBox Core in your own project, add the AAR dependency:
+
+```gradle
+dependencies {
+    implementation fileTree(dir: "libs", include: ["*.aar"])
+}
+```
+
+Refer to `Docs.md` for detailed API documentation.
+
+## Troubleshooting
+
+*   **App Crashes**: Check logcat for UID mismatches or permission errors.
+*   **Installation Failures**: Verify potential architecture mismatches or storage permissions.
+*   **Android 15**: Ensure you are using the latest build which handles stricter security policies.
+
+## Credits
+
+*   **Main Developer**: ALEX502
+*   **Original Framework**: VirtualApp, VirtualAPK
+*   **Native Hooks**: Dobby, xDL
+*   **Reflection**: BlackReflection, FreeReflection
+
+## License
+
+Copyright 2022 BlackBox
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+   http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
