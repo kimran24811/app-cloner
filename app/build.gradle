@@ -45,10 +45,9 @@ android {
 }
 
 dependencies {
-    implementation files("libs/StateView-v3.0.6.aar")
-    implementation files("libs/catloading-release.aar")
-    implementation files("libs/floatingview-release.aar")
-    implementation 'com.github.nukc.stateview:kotlin:2.2.0'
+    implementation(name: 'StateView-v3.0.6', ext: 'aar')
+    implementation(name: 'catloading-release', ext: 'aar')
+    implementation(name: 'floatingview-release', ext: 'aar')
     implementation project(':Bcore')
 
     implementation libs.appcompat
